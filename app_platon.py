@@ -66,7 +66,7 @@ with col_sel2:
     chk_falacias = st.checkbox("Falacias y Argumentación Crítica", value=True)
 
 
-# Función para consultar la API de Groq filtrando exclusivamente modelos de texto (Chat)
+# Función para consultar la API de Groq priorizando el modelo de Google (gemma2-9b-it)
 def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones = []
 
@@ -96,61 +96,44 @@ def consultar_platon_groq(texto, opciones, api_key_val):
 
     instrucciones_str = "\n".join(instrucciones)
 
-    system_prompt = f"""
-    Eres Platón, un auditor académico y analista lógico riguroso. Analiza el ensayo y responde ÚNICAMENTE con un objeto JSON estructurado que contenga las siguientes llaves:
+    prompt_unico = f"""Eres Platón, un auditor académico y analista lógico riguroso. Analiza el siguiente ensayo y responde ÚNICAMENTE con un objeto JSON estructurado que contenga las siguientes llaves solicitadas:
 
-    {instrucciones_str}
+{instrucciones_str}
 
-    No incluyas explicaciones adicionales fuera del objeto JSON.
-    """
+No incluyas explicaciones adicionales ni texto fuera del objeto JSON.
 
-    try:
-        client = Groq(api_key=api_key_val.strip())
-        
-        # 1. Obtener modelos remotos y filtrar únicamente los modelos de chat (excluyendo whisper/audio)
-        modelos_remote = client.models.list()
-        modelos_texto = [
-            m.id for m in modelos_remote.data 
-            if not m.id.startswith("whisper") and ("llama" in m.id or "mixtral" in m.id or "gemma" in m.id)
-        ]
-        
-        # Orden de preferencia explícito
-        preferencias = [
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-            "llama3-70b-8192",
-            "llama3-8b-8192"
-        ]
-        
-        modelo_elegido = None
-        for pref in preferencias:
-            if pref in modelos_texto:
-                modelo_elegido = pref
-                break
-                
-        if not modelo_elegido and modelos_texto:
-            modelo_elegido = modelos_texto[0]
-            
-        if not modelo_elegido:
-            st.error("No se encontraron modelos de chat válidos en la cuenta de Groq.")
-            return None
+ENSAYO A ANALIZAR:
+{texto}"""
 
-        # 2. Ejecutar la llamada con el modelo de texto identificado
-        response = client.chat.completions.create(
-            model=modelo_elegido,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
-            ],
-            temperature=0.2,
-            response_format={"type": "json_object"}
-        )
-        content = response.choices[0].message.content
-        return json.loads(content)
+    client = Groq(api_key=api_key_val.strip())
+    
+    # Prioridad: 1° Gemma (Google), 2° LLaMA 3.3 (Meta), 3° LLaMA 3.1 (Meta)
+    modelos_produccion = [
+        "gemma2-9b-it",
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant"
+    ]
 
-    except Exception as e:
-        st.error(f"Error al procesar la solicitud con Groq: {e}")
-        return None
+    ultimo_error = None
+
+    for m_id in modelos_produccion:
+        try:
+            response = client.chat.completions.create(
+                model=m_id,
+                messages=[
+                    {"role": "user", "content": prompt_unico}
+                ],
+                temperature=0.2,
+                response_format={"type": "json_object"}
+            )
+            content = response.choices[0].message.content
+            return json.loads(content)
+        except Exception as e:
+            ultimo_error = e
+            continue
+
+    st.error(f"Error al procesar la solicitud con Groq: {ultimo_error}")
+    return None
 
 
 # Función para renderizar los resultados
