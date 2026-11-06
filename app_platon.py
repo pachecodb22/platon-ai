@@ -48,7 +48,24 @@ def extraer_texto_docx(file):
             texto.append(para.text)
     return "\n".join(texto)
 
-# --- FUNCIONES PARA GENERACIÓN DE ARCHIVOS DE SALIDA ---
+# --- CLASE Y FUNCIÓN PARA GENERACIÓN DE PDF ESTRUCTURADO Y ATRACTIVO ---
+class PDFReporte(FPDF):
+    def header(self):
+        # Franja superior institucional
+        self.set_fill_color(31, 41, 55)  # Azul noche / Gris oscuro
+        self.rect(0, 0, 210, 20, style="F")
+        self.set_font("Helvetica", style="B", size=12)
+        self.set_text_color(255, 255, 255)
+        self.cell(0, 10, txt="Platon AI | Reporte de Auditoria y Redaccion Academica", align="C", new_x="LMARGIN", new_y="NEXT")
+        self.ln(10)
+
+    def footer(self):
+        # Pie de página con numeración
+        self.set_y(-15)
+        self.set_font("Helvetica", size=8)
+        self.set_text_color(128, 128, 128)
+        self.cell(0, 10, txt=f"Pagina {self.page_no()} | Generado automaticamente por Platon AI", align="C")
+
 def generar_docx(contenido_texto, titulo="Reporte Platón AI"):
     doc = Document()
     doc.add_heading(titulo, level=1)
@@ -58,28 +75,60 @@ def generar_docx(contenido_texto, titulo="Reporte Platón AI"):
     doc.save(bio)
     return bio.getvalue()
 
-def generar_pdf(contenido_texto, titulo="Reporte Platón AI"):
-    pdf = FPDF(orientation="P", unit="mm", format="A4")
-    pdf.set_margins(left=15, top=15, right=15)
-    pdf.set_auto_page_break(auto=True, margin=15)
+def generar_pdf(contenido_texto, titulo="REPORTE DE ANÁLISIS"):
+    pdf = PDFReporte(orientation="P", unit="mm", format="A4")
+    pdf.set_margins(left=15, top=25, right=15)
+    pdf.set_auto_page_break(auto=True, margin=20)
     pdf.add_page()
-    
-    pdf.set_font("Helvetica", size=14, style="B")
-    pdf.cell(w=0, h=10, txt=titulo, align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(5)
-    
-    pdf.set_font("Helvetica", size=10)
-    
-    texto_limpio = contenido_texto.replace("\t", "    ")
-    texto_limpio = texto_limpio.encode('latin-1', 'replace').decode('latin-1')
     
     ancho_util = pdf.epw
     
-    for linea in texto_limpio.split("\n"):
-        if linea.strip() == "":
+    # Título principal del reporte
+    titulo_limpio = titulo.encode('latin-1', 'replace').decode('latin-1').upper()
+    pdf.set_font("Helvetica", style="B", size=16)
+    pdf.set_text_color(17, 24, 39)
+    pdf.cell(w=0, h=10, txt=titulo_limpio, align="L", new_x="LMARGIN", new_y="NEXT")
+    
+    # Línea decorativa inferior
+    pdf.set_draw_color(59, 130, 246)  # Azul acento
+    pdf.set_line_width(0.8)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(6)
+    
+    # Procesamiento del cuerpo por bloques
+    lineas = contenido_texto.replace("\t", "    ").split("\n")
+    
+    for linea in lineas:
+        linea_limpia = linea.encode('latin-1', 'replace').decode('latin-1').strip()
+        
+        if not linea_limpia:
+            pdf.ln(3)
+            continue
+            
+        # Detección de encabezados de sección para aplicar cajas de contraste
+        if any(linea_limpia.startswith(sub) for sub in [
+            "TESIS CENTRAL:", "SISTESIS GENERAL:", "SÍNTESIS GENERAL:", 
+            "REGISTRO ACADEMICO:", "REGISTRO ACADÉMICO:", 
+            "FALACIAS LOGICAS:", "FALACIAS LÓGICAS:", 
+            "ASPECTOS A MEJORAR:", "PUNTOS FUERTES:", "DIAGNOSTICO:", "DIAGNÓSTICO:",
+            "PREMISAS SIN JUSTIFICAR:", "AMBIGUEDADES:", "AMBIGÜEDADES:"
+        ]):
             pdf.ln(4)
+            pdf.set_fill_color(243, 244, 246)  # Fondo gris claro
+            pdf.set_font("Helvetica", style="B", size=11)
+            pdf.set_text_color(31, 41, 55)
+            pdf.multi_cell(w=ancho_util, h=8, txt=f"  {linea_limpia}", fill=True, new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+        # Viñetas o puntos destacados
+        elif linea_limpia.startswith("- ") or linea_limpia.startswith("* "):
+            pdf.set_font("Helvetica", size=10)
+            pdf.set_text_color(55, 65, 81)
+            pdf.multi_cell(w=ancho_util, h=5, txt=f"   * {linea_limpia[2:]}", new_x="LMARGIN", new_y="NEXT")
+        # Texto estándar
         else:
-            pdf.multi_cell(w=ancho_util, h=6, txt=linea, new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", size=10)
+            pdf.set_text_color(55, 65, 81)
+            pdf.multi_cell(w=ancho_util, h=5.5, txt=linea_limpia, new_x="LMARGIN", new_y="NEXT")
             
     return bytes(pdf.output())
 
