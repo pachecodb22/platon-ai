@@ -96,7 +96,7 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     url = "https://api.groq.com/openai/v1/chat/completions"
     
     payload = {
-        "model": "llama-3.2-3b-preview",
+        "model": "llama-3.2-3b-instruct",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
