@@ -4,7 +4,9 @@ from groq import Groq
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Platón AI - Auditoría de Ensayos", page_icon="🏛️", layout="wide"
+    page_title="Platón AI - Auditoría de Ensayos",
+    page_icon="🏛️",
+    layout="wide"
 )
 
 # Estilo y Título principal
@@ -24,7 +26,7 @@ st.sidebar.header("Configuración del Sistema")
 api_key = st.sidebar.text_input(
     "Groq API Key:",
     type="password",
-    help="Ingresa tu API Key de Groq para procesar la IA en la nube.",
+    help="Ingresa tu API Key de Groq para procesar la IA en la nube."
 )
 
 # Entrada de texto
@@ -49,9 +51,7 @@ st.divider()
 
 # Casillas de Selección
 st.subheader("2. Selecciona los análisis que deseas realizar")
-st.caption(
-    "Nota: Seleccionar solo los análisis requeridos optimizará el tiempo de respuesta del sistema."
-)
+st.caption("Nota: Seleccionar solo los análisis requeridos optimizará el tiempo de respuesta del sistema.")
 
 col_sel1, col_sel2 = st.columns(2)
 
@@ -110,10 +110,10 @@ def consultar_platon_groq(texto, opciones, api_key_val):
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"},
+                {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
             ],
             temperature=0.2,
-            response_format={"type": "json_object"},
+            response_format={"type": "json_object"}
         )
 
         content = response.choices[0].message.content
@@ -134,22 +134,18 @@ if st.button("Analizar Selección con Platón", type="primary", use_container_wi
         "marco": chk_marco,
         "premisas": chk_premisas,
         "conclusion": chk_conclusion,
-        "falacias": chk_falacias,
+        "falacias": chk_falacias
     }
 
     if not api_key.strip():
         st.warning("Por favor ingresa tu Groq API Key en la barra lateral izquierda.")
     elif not any(opciones_seleccionadas.values()):
-        st.warning(
-            "Por favor marca al menos una casilla de análisis antes de ejecutar Platón."
-        )
+        st.warning("Por favor marca al menos una casilla de análisis antes de ejecutar Platón.")
     elif not ensayo_texto.strip():
         st.warning("Por favor ingresa o carga un ensayo antes de iniciar el análisis.")
     else:
         with st.spinner("Platón está procesando los módulos en la nube a través de Groq..."):
-            resultado = consultar_platon_groq(
-                ensayo_texto, opciones_seleccionadas, api_key
-            )
+            resultado = consultar_platon_groq(ensayo_texto, opciones_seleccionadas, api_key)
 
         if resultado:
             st.success("Análisis completado exitosamente.")
@@ -186,3 +182,30 @@ if st.button("Analizar Selección con Platón", type="primary", use_container_wi
                     premisas = resultado["premisas_clave"]
                     if isinstance(premisas, list):
                         for p in premisas:
+                            st.markdown(f"* {p}")
+                    else:
+                        st.write(premisas)
+
+                if chk_conclusion and "conclusiones" in resultado:
+                    st.subheader("Conclusión del Autor")
+                    st.write(resultado["conclusiones"])
+
+            with col_der:
+                if chk_falacias and "auditoria_critica" in resultado:
+                    st.header("Auditoría Crítica")
+                    auditoria = resultado["auditoria_critica"]
+
+                    falacias = auditoria.get("falacias_logicas", [])
+                    st.subheader(f"Falacias Lógicas ({len(falacias)})")
+                    if falacias:
+                        for f in falacias:
+                            with st.expander(f"Falacia: {f.get('tipo', 'No especificada')}"):
+                                st.markdown(f"**Fragmento:** *\"{f.get('fragmento', '')}\"*")
+                                st.markdown(f"**Razón:** {f.get('explicacion', '')}")
+                    else:
+                        st.caption("No se detectaron falacias explícitas.")
+
+                    premisas_sin_respaldo = auditoria.get("premisas_no_justificadas", [])
+                    if premisas_sin_respaldo:
+                        st.subheader(f"Premisas sin Justificación ({len(premisas_sin_respaldo)})")
+                        for p in premisas_sin_resp
