@@ -13,21 +13,16 @@ st.set_page_config(
     layout="wide"
 )
 
+# Obtener la API Key global desde los Secrets de Streamlit
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+
 # Estilo y Título principal
 st.title("🏛️ Platón AI")
 st.caption("Asistente integral de análisis del discurso, auditoría lógica y redacción académica.")
 
 st.divider()
 
-# Sidebar - Configuración de API Key y Navegación
-st.sidebar.header("Configuración del Sistema")
-api_key = st.sidebar.text_input(
-    "Groq API Key:",
-    type="password",
-    help="Ingresa tu API Key de Groq para procesar la IA en la nube."
-)
-
-st.sidebar.divider()
+# Sidebar - Menú de Navegación
 st.sidebar.header("Menú de Funciones")
 modulo_seleccionado = st.sidebar.radio(
     "Selecciona una sección:",
@@ -38,6 +33,9 @@ modulo_seleccionado = st.sidebar.radio(
         "4. Reformulador Académico"
     ]
 )
+
+st.sidebar.divider()
+st.sidebar.caption("🟢 Sistema conectado mediante API Key institucional.")
 
 # --- FUNCIONES PARA LECTURA DE ARCHIVOS ---
 def extraer_texto_pdf(file):
@@ -73,19 +71,16 @@ def generar_pdf(contenido_texto, titulo="Reporte Platón AI"):
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     
-    # Título
     pdf.set_font("Helvetica", size=14, style="B")
     pdf.cell(w=0, h=10, txt=titulo, align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(5)
     
-    # Cuerpo del texto
     pdf.set_font("Helvetica", size=10)
     
-    # Sanitización de texto para fpdf (sustitución de tabs y manejo de encoding)
     texto_limpio = contenido_texto.replace("\t", "    ")
     texto_limpio = texto_limpio.encode('latin-1', 'replace').decode('latin-1')
     
-    ancho_util = pdf.epw  # Ancho efectivo de la página (Effective Page Width)
+    ancho_util = pdf.epw
     
     for linea in texto_limpio.split("\n"):
         if linea.strip() == "":
@@ -124,9 +119,13 @@ with tab_file:
 st.divider()
 
 # Función central para consultar Groq
-def consultar_groq(prompt_input, api_key_val, json_mode=True):
+def consultar_groq(prompt_input, json_mode=True):
+    if not GROQ_API_KEY:
+        st.error("No se ha configurado la clave API de Groq en los Secrets de la aplicación.")
+        return None
+        
     try:
-        client = Groq(api_key=api_key_val.strip())
+        client = Groq(api_key=GROQ_API_KEY.strip())
         modelos_remote = client.models.list()
         
         modelos_chat = [
@@ -137,7 +136,7 @@ def consultar_groq(prompt_input, api_key_val, json_mode=True):
         ]
         
         if not modelos_chat:
-            st.error("No se encontraron modelos de chat activos en tu API Key.")
+            st.error("No se encontraron modelos de chat activos en el sistema.")
             return None
 
         for modelo_id in modelos_chat:
@@ -159,13 +158,10 @@ def consultar_groq(prompt_input, api_key_val, json_mode=True):
         st.error("Error al procesar la solicitud con los modelos disponibles.")
         return None
     except Exception as e:
-        st.error(f"Error de conexión con la API de Groq: {e}")
+        st.error(f"Error de conexión con el servicio en la nube: {e}")
         return None
 
 def validar_ejecucion():
-    if not api_key.strip():
-        st.warning("Por favor ingresa tu Groq API Key en la barra lateral.")
-        return False
     if not ensayo_texto.strip():
         st.warning("Por favor ingresa o carga un texto antes de ejecutar el análisis.")
         return False
@@ -225,7 +221,7 @@ TEXTO:
 {ensayo_texto}"""
             
             with st.spinner("Procesando resumen ejecutivo..."):
-                res = consultar_groq(prompt, api_key, json_mode=True)
+                res = consultar_groq(prompt, json_mode=True)
                 
             if res:
                 st.subheader("Síntesis del Texto")
@@ -269,7 +265,7 @@ TEXTO:
 {ensayo_texto}"""
             
             with st.spinner("Evaluando calidad sintáctica y estilística..."):
-                res = consultar_groq(prompt, api_key, json_mode=True)
+                res = consultar_groq(prompt, json_mode=True)
                 
             if res:
                 st.info(f"**Nivel de Registro Académico:** {res.get('nivel_academico', 'N/A')}")
@@ -310,8 +306,8 @@ elif modulo_seleccionado == "3. Auditoría Argumentativa":
 TEXTO:
 {ensayo_texto}"""
             
-            with st.spinner("Realizando auditoría lógica en Groq..."):
-                res = consultar_groq(prompt, api_key, json_mode=True)
+            with st.spinner("Realizando auditoría lógica en el servidor..."):
+                res = consultar_groq(prompt, json_mode=True)
                 
             if res:
                 st.subheader("Tesis Central Detectada")
@@ -365,7 +361,7 @@ TEXTO A REFORMULAR:
 {ensayo_texto}"""
             
             with st.spinner("Reformulando borrador..."):
-                texto_reformulado = consultar_groq(prompt, api_key, json_mode=False)
+                texto_reformulado = consultar_groq(prompt, json_mode=False)
                 
             if texto_reformulado:
                 st.subheader("Propuesta Reformulada")
