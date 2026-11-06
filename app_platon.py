@@ -6,7 +6,7 @@ from pypdf import PdfReader
 from docx import Document
 from fpdf import FPDF
 
-# Configuración de la página
+# 1. Configuración global de la página
 st.set_page_config(
     page_title="Platón AI - Auditoría y Redacción Académica",
     page_icon="🏛️",
@@ -16,16 +16,14 @@ st.set_page_config(
 # Obtener la API Key global desde los Secrets de Streamlit
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
-# ==========================================
-# BARRA SUPERIOR (HEADER)
-# ==========================================
-col_header1, col_header2 = st.columns([3, 1])
-with col_header1:
-    st.title("🏛️ Platón AI")
-    st.caption("Asistente integral de análisis del discurso, auditoría lógica y redacción académica.")
-with col_header2:
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.success("🟢 Sistema Conectado")
+# 2. BARRA SUPERIOR DE TÍTULO (HEADER)
+st.markdown("# 🏛️ Platón AI")
+st.markdown("**Asistente integral de análisis del discurso, auditoría lógica y redacción académica.**")
+
+if GROQ_API_KEY:
+    st.caption("🟢 Sistema conectado mediante API Key institucional.")
+else:
+    st.error("🔴 Error: No se detectó la clave GROQ_API_KEY en los Secrets.")
 
 st.divider()
 
@@ -83,20 +81,20 @@ def generar_pdf(contenido_texto, titulo="Reporte Platón AI"):
     return bytes(pdf.output())
 
 
-# --- ENTRADA UNIVERSAL DE TEXTO ---
-st.subheader("1. Entrada de Texto")
+# 3. ENTRADA UNIVERSAL DE TEXTO
+st.header("1. Cargar o Pegar Ensayo")
 tab_paste, tab_file = st.tabs(["📝 Pegar texto directamente", "📁 Cargar archivo (.txt, .docx, .pdf)"])
 
 ensayo_texto = ""
 
 with tab_paste:
-    pasted_text = st.text_area("Pega tu ensayo o fragmento aquí:", height=180)
+    pasted_text = st.text_area("Pega el borrador de tu ensayo aquí:", height=180)
     if pasted_text.strip():
         ensayo_texto = pasted_text
 
 with tab_file:
     uploaded_file = st.file_uploader(
-        "Carga tu archivo de ensayo", 
+        "Arrastra tu archivo aquí", 
         type=["txt", "docx", "pdf"]
     )
     if uploaded_file is not None:
@@ -191,10 +189,8 @@ def mostrar_botones_descarga(texto_reporte, nombre_base="reporte_platon"):
         )
 
 
-# ==========================================
-# 2. BARRA DE FUNCIONES HORIZONTAL (PESTAÑAS)
-# ==========================================
-st.subheader("2. Módulos de Análisis y Redacción")
+# 4. BARRA DE FUNCIONES HORIZONTAL (PESTAÑAS)
+st.header("2. Funciones de Auditoría y Redacción")
 
 tab_resumen, tab_redaccion, tab_auditoria, tab_reformulador = st.tabs([
     "📋 Resumen Ejecutivo",
