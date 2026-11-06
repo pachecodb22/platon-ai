@@ -96,7 +96,7 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     url = "https://api.groq.com/openai/v1/chat/completions"
     
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": "llama3-8b-8192",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
@@ -107,7 +107,8 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     data = json.dumps(payload).encode('utf-8')
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {api_key_val}'
+        'Authorization': f'Bearer {api_key_val.strip()}',
+        'User-Agent': 'Mozilla/5.0'
     }
 
     req = urllib.request.Request(url, data=data, headers=headers)
