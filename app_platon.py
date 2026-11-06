@@ -86,22 +86,22 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones_str = "\n".join(instrucciones)
 
     system_prompt = f"""
-    Eres Platón, un auditor académico y analista lógico riguroso. Tu tarea es analizar un ensayo académico y devolver un objeto JSON conteniendo ÚNICAMENTE las siguientes claves solicitadas:
+    Eres Platón, un auditor académico y analista lógico riguroso. Tu tarea es analizar un ensayo académico y devolver un objeto JSON válido conteniendo ÚNICAMENTE las siguientes claves solicitadas:
 
     {instrucciones_str}
 
-    Responde ÚNICAMENTE en formato JSON válido que cumpla con esta estructura, sin texto adicional fuera del objeto JSON.
+    IMPORTANTE: Responde ÚNICAMENTE con el objeto JSON estrictamente formateado. No agregues texto introductorio, ni explicaciones fuera del JSON.
     """
 
     url = "https://api.groq.com/openai/v1/chat/completions"
     
     payload = {
-        "model": "llama3-8b-8192",
+        "model": "llama-3.1-8b-instant",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
         ],
-        "response_format": {"type": "json_object"}
+        "temperature": 0.2
     }
 
     data = json.dumps(payload).encode('utf-8')
@@ -118,9 +118,19 @@ def consultar_platon_groq(texto, opciones, api_key_val):
             res_body = response.read().decode('utf-8')
             res_json = json.loads(res_body)
             content = res_json["choices"][0]["message"]["content"]
-            return json.loads(content)
+            
+            # Limpiar posible marcado Markdown si la API devuelve ```json ... ```
+            content_clean = content.strip()
+            if content_clean.startswith("```json"):
+                content_clean = content_clean[7:]
+            if content_clean.startswith("```"):
+                content_clean = content_clean[3:]
+            if content_clean.endswith("```"):
+                content_clean = content_clean[:-3]
+                
+            return json.loads(content_clean.strip())
     except urllib.error.HTTPError as e:
-        st.error(f"Error de autenticación o API de Groq ({e.code}). Revisa tu API Key.")
+        st.error(f"Error HTTP ({e.code}) al consultar Groq. Verifica la validez de tu API Key.")
         return None
     except Exception as e:
         st.error(f"Error procesando la solicitud: {e}")
@@ -159,62 +169,4 @@ if st.button("Analizar Selección con Platón", type="primary", use_container_wi
                 r_col1, r_col2 = st.columns(2)
                 with r_col1:
                     st.success(f"**Puntos fuertes:**\n\n{res.get('puntos_fuertes', 'N/A')}")
-                with r_col2:
-                    st.warning(f"**Aspectos a mejorar:**\n\n{res.get('fallas_principales', 'N/A')}")
-                st.divider()
-
-            col_izq, col_der = st.columns(2)
-
-            with col_izq:
-                if chk_tesis and "tesis_principal" in resultado:
-                    st.subheader("Tesis Central")
-                    st.info(resultado["tesis_principal"])
-
-                if chk_marco and "marco_teorico" in resultado:
-                    st.subheader("Marco Teórico y Conceptos")
-                    marco = resultado["marco_teorico"]
-                    if isinstance(marco, list):
-                        for m in marco:
-                            st.markdown(f"* {m}")
-                    else:
-                        st.write(marco)
-
-                if chk_premisas and "premisas_clave" in resultado:
-                    st.subheader("Premisas Clave")
-                    premisas = resultado["premisas_clave"]
-                    if isinstance(premisas, list):
-                        for p in premisas:
-                            st.markdown(f"* {p}")
-                    else:
-                        st.write(premisas)
-
-                if chk_conclusion and "conclusiones" in resultado:
-                    st.subheader("Conclusión del Autor")
-                    st.write(resultado["conclusiones"])
-
-            with col_der:
-                if chk_falacias and "auditoria_critica" in resultado:
-                    st.header("Auditoría Crítica")
-                    auditoria = resultado["auditoria_critica"]
-
-                    falacias = auditoria.get("falacias_logicas", [])
-                    st.subheader(f"Falacias Lógicas ({len(falacias)})")
-                    if falacias:
-                        for f in falacias:
-                            with st.expander(f"Falacia: {f.get('tipo', 'No especificada')}"):
-                                st.markdown(f"**Fragmento:** *\"{f.get('fragmento', '')}\"*")
-                                st.markdown(f"**Razón:** {f.get('explicacion', '')}")
-                    else:
-                        st.caption("No se detectaron falacias explícitas.")
-
-                    premisas_sin_respaldo = auditoria.get("premisas_no_justificadas", [])
-                    if premisas_sin_respaldo:
-                        st.subheader(f"Premisas sin Justificación ({len(premisas_sin_respaldo)})")
-                        for p in premisas_sin_respaldo:
-                            st.error(p)
-
-                    saltos = auditoria.get("saltos_logicos", [])
-                    if saltos:
-                        st.subheader(f"Saltos Lógicos ({len(saltos)})")
-                        for s in saltos:
-                            st.warning(s)
+                with r_col
