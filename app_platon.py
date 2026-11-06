@@ -16,26 +16,18 @@ st.set_page_config(
 # Obtener la API Key global desde los Secrets de Streamlit
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
-# Estilo y Título principal
-st.title("🏛️ Platón AI")
-st.caption("Asistente integral de análisis del discurso, auditoría lógica y redacción académica.")
+# ==========================================
+# BARRA SUPERIOR (HEADER)
+# ==========================================
+col_header1, col_header2 = st.columns([3, 1])
+with col_header1:
+    st.title("🏛️ Platón AI")
+    st.caption("Asistente integral de análisis del discurso, auditoría lógica y redacción académica.")
+with col_header2:
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.success("🟢 Sistema Conectado")
 
 st.divider()
-
-# Sidebar - Menú de Navegación
-st.sidebar.header("Menú de Funciones")
-modulo_seleccionado = st.sidebar.radio(
-    "Selecciona una sección:",
-    [
-        "1. Resumen Ejecutivo",
-        "2. Análisis de Redacción",
-        "3. Auditoría Argumentativa",
-        "4. Reformulador Académico"
-    ]
-)
-
-st.sidebar.divider()
-st.sidebar.caption("🟢 Sistema conectado mediante API Key institucional.")
 
 # --- FUNCIONES PARA LECTURA DE ARCHIVOS ---
 def extraer_texto_pdf(file):
@@ -91,9 +83,9 @@ def generar_pdf(contenido_texto, titulo="Reporte Platón AI"):
     return bytes(pdf.output())
 
 
-# Entrada universal de texto
-st.subheader("Entrada de Texto")
-tab_paste, tab_file = st.tabs(["Pegar texto directamente", "Cargar archivo (.txt, .docx, .pdf)"])
+# --- ENTRADA UNIVERSAL DE TEXTO ---
+st.subheader("1. Entrada de Texto")
+tab_paste, tab_file = st.tabs(["📝 Pegar texto directamente", "📁 Cargar archivo (.txt, .docx, .pdf)"])
 
 ensayo_texto = ""
 
@@ -118,7 +110,7 @@ with tab_file:
 
 st.divider()
 
-# Función central para consultar Groq
+# --- FUNCIÓN CENTRAL CONSULTA GROQ ---
 def consultar_groq(prompt_input, json_mode=True):
     if not GROQ_API_KEY:
         st.error("No se ha configurado la clave API de Groq en los Secrets de la aplicación.")
@@ -167,7 +159,6 @@ def validar_ejecucion():
         return False
     return True
 
-# Componente reutilizable de descarga multiformato
 def mostrar_botones_descarga(texto_reporte, nombre_base="reporte_platon"):
     st.subheader("📥 Exportar Resultados")
     col_d1, col_d2, col_d3 = st.columns(3)
@@ -201,13 +192,24 @@ def mostrar_botones_descarga(texto_reporte, nombre_base="reporte_platon"):
 
 
 # ==========================================
-# SECCIÓN 1: RESUMEN EJECUTIVO
+# 2. BARRA DE FUNCIONES HORIZONTAL (PESTAÑAS)
 # ==========================================
-if modulo_seleccionado == "1. Resumen Ejecutivo":
-    st.header("📋 Resumen Ejecutivo y Estructura")
+st.subheader("2. Módulos de Análisis y Redacción")
+
+tab_resumen, tab_redaccion, tab_auditoria, tab_reformulador = st.tabs([
+    "📋 Resumen Ejecutivo",
+    "✍️ Análisis de Redacción",
+    "⚖️ Auditoría Argumentativa",
+    "🔄 Reformulador Académico"
+])
+
+# ------------------------------------------
+# PESTAÑA 1: RESUMEN EJECUTIVO
+# ------------------------------------------
+with tab_resumen:
     st.markdown("Genera una síntesis panorámica del escrito, identificando puntos fuertes y vacíos generales.")
     
-    if st.button("Generar Resumen", type="primary", use_container_width=True):
+    if st.button("Generar Resumen", type="primary", use_container_width=True, key="btn_resumen"):
         if validar_ejecucion():
             prompt = f"""Eres Platón AI. Analiza el siguiente texto y responde ÚNICAMENTE con un objeto JSON estructurado:
 {{
@@ -243,15 +245,13 @@ TEXTO:
                 reporte_txt = f"SÍNTESIS GENERAL:\n{res.get('resumen_general', '')}\n\nPUNTOS FUERTES:\n" + "\n".join(res.get('puntos_fuertes', [])) + "\n\nASPECTOS A MEJORAR:\n" + "\n".join(res.get('aspectos_a_mejorar', []))
                 mostrar_botones_descarga(reporte_txt, nombre_base="resumen_ejecutivo_platon")
 
-
-# ==========================================
-# SECCIÓN 2: ANÁLISIS DE REDACCIÓN Y ESTILO
-# ==========================================
-elif modulo_seleccionado == "2. Análisis de Redacción":
-    st.header("✍️ Análisis de Redacción y Estilo Académico")
+# ------------------------------------------
+# PESTAÑA 2: ANÁLISIS DE REDACCIÓN
+# ------------------------------------------
+with tab_redaccion:
     st.markdown("Evalúa la precisión léxica, fluidez sintáctica, repeticiones e inconsistencias de tono.")
     
-    if st.button("Analizar Redacción", type="primary", use_container_width=True):
+    if st.button("Analizar Redacción", type="primary", use_container_width=True, key="btn_redaccion"):
         if validar_ejecucion():
             prompt = f"""Eres un editor académico riguroso. Analiza la redacción del texto y responde ÚNICAMENTE en formato JSON:
 {{
@@ -285,15 +285,13 @@ TEXTO:
                 reporte_txt = f"REGISTRO ACADÉMICO: {res.get('nivel_academico', '')}\n\nDIAGNÓSTICO:\n{res.get('diagnostico_estilo', '')}\n\nAMBIGÜEDADES:\n" + "\n".join(amb_textos)
                 mostrar_botones_descarga(reporte_txt, nombre_base="analisis_redaccion_platon")
 
-
-# ==========================================
-# SECCIÓN 3: AUDITORÍA ARGUMENTATIVA
-# ==========================================
-elif modulo_seleccionado == "3. Auditoría Argumentativa":
-    st.header("⚖️ Auditoría Argumentativa y Falacias Lógicas")
+# ------------------------------------------
+# PESTAÑA 3: AUDITORÍA ARGUMENTATIVA
+# ------------------------------------------
+with tab_auditoria:
     st.markdown("Examina el rigor lógico del escrito, aislando falacias, premisas sin justificar y saltos inferenciales.")
     
-    if st.button("Ejecutar Auditoría Lógica", type="primary", use_container_width=True):
+    if st.button("Ejecutar Auditoría Lógica", type="primary", use_container_width=True, key="btn_auditoria"):
         if validar_ejecucion():
             prompt = f"""Eres Platón, auditor académico. Analiza el ensayo y responde ÚNICAMENTE en JSON:
 {{
@@ -339,12 +337,10 @@ TEXTO:
                 reporte_txt = f"TESIS CENTRAL:\n{res.get('tesis_central', '')}\n\nFALACIAS LÓGICAS:\n" + "\n".join(falacias_txt) + "\n\nPREMISAS SIN JUSTIFICAR:\n" + "\n".join(res.get('premisas_no_justificadas', []))
                 mostrar_botones_descarga(reporte_txt, nombre_base="auditoria_argumentativa_platon")
 
-
-# ==========================================
-# SECCIÓN 4: REFORMULADOR ACADÉMICO
-# ==========================================
-elif modulo_seleccionado == "4. Reformulador Académico":
-    st.header("🔄 Reformulador de Texto Académico")
+# ------------------------------------------
+# PESTAÑA 4: REFORMULADOR ACADÉMICO
+# ------------------------------------------
+with tab_reformulador:
     st.markdown("Reescribe pasajes para elevar su rigor terminológico o corregir fallas de argumentación.")
     
     estilo_reform = st.selectbox(
@@ -352,7 +348,7 @@ elif modulo_seleccionado == "4. Reformulador Académico":
         ["Formato Académico Riguroso (Formal)", "Conciso y Directo", "Eliminación de Falacias / Mayor Neutralidad"]
     )
     
-    if st.button("Reformular Texto", type="primary", use_container_width=True):
+    if st.button("Reformular Texto", type="primary", use_container_width=True, key="btn_reformulador"):
         if validar_ejecucion():
             prompt = f"""Reescribe el siguiente texto con un enfoque de '{estilo_reform}'. 
 Conserva la idea central, elimina sesgos, mejora la precisión léxica y devuelve la propuesta reescrita en texto plano continuo.
