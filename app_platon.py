@@ -72,19 +72,19 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones = []
 
     if opciones["resumen"]:
-        instrucciones.append('- "resumen": {"puntos_fuertes": "Breve párrafo con los aspectos logrados del ensayo", "fallas_principales": "Breve párrafo con las fallas generales"}')
+        instrucciones.append('- "resumen": {"puntos_fuertes": "Aspectos logrados del ensayo", "fallas_principales": "Fallas generales"}')
 
     if opciones["tesis"]:
-        instrucciones.append('- "tesis_principal": "La proposición o hipótesis central del autor"')
+        instrucciones.append('- "tesis_principal": "La hipótesis central del autor"')
 
     if opciones["marco"]:
-        instrucciones.append('- "marco_teorico": ["Lista de autores, teorías o conceptos principales"]')
+        instrucciones.append('- "marco_teorico": ["Lista de autores o conceptos clave"]')
 
     if opciones["premisas"]:
-        instrucciones.append('- "premisas_clave": ["Lista de argumentos o evidencias principales utilizados"]')
+        instrucciones.append('- "premisas_clave": ["Lista de argumentos o evidencias principales"]')
 
     if opciones["conclusion"]:
-        instrucciones.append('- "conclusiones": "Hallazgos o cierre planteado por el autor"')
+        instrucciones.append('- "conclusiones": "Cierre o hallazgos del autor"')
 
     if opciones["falacias"]:
         instrucciones.append('- "auditoria_critica": {"falacias_logicas": [{"tipo": "...", "fragmento": "...", "explicacion": "..."}], "premisas_no_justificadas": ["..."], "saltos_logicos": ["..."]}')
@@ -92,54 +92,61 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones_str = "\n".join(instrucciones)
 
     system_prompt = f"""
-    Eres Platón, un auditor académico y analista lógico riguroso. Tu tarea es analizar un ensayo académico y devolver un objeto JSON válido conteniendo ÚNICAMENTE las siguientes claves solicitadas:
+    Eres Platón, un auditor académico y analista lógico riguroso. Analiza el ensayo y responde ÚNICAMENTE con un objeto JSON estructurado que contenga las siguientes llaves:
 
     {instrucciones_str}
 
-    IMPORTANTE: Responde ÚNICAMENTE con el objeto JSON strictly formateado. No agregues texto introductorio, ni explicaciones fuera del JSON.
+    No incluyas explicaciones adicionales, ni etiquetas Markdown de código fuera del objeto JSON.
     """
 
     url = "https://api.groq.com/openai/v1/chat/completions"
+    
+    # Intentamos primero con el modelo oficial estable de producción
+    modelos_a_probar = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    
+    clean_key = api_key_val.strip()
 
-    payload = {
-        "model": "llama-3.1-8b-instant",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
-        ],
-        "temperature": 0.2
-    }
+    for mod in modelos_a_probar:
+        payload = {
+            "model": mod,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
+            ],
+            "temperature": 0.2
+        }
 
-    data = json.dumps(payload).encode("utf-8")
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key_val.strip()}",
-        "User-Agent": "Mozilla/5.0"
-    }
+        data = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {clean_key}"
+        }
 
-    req = urllib.request.Request(url, data=data, headers=headers)
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
 
-    try:
-        with urllib.request.urlopen(req) as response:
-            res_body = response.read().decode("utf-8")
-            res_json = json.loads(res_body)
-            content = res_json["choices"][0]["message"]["content"]
+        try:
+            with urllib.request.urlopen(req) as response:
+                res_body = response.read().decode("utf-8")
+                res_json = json.loads(res_body)
+                content = res_json["choices"][0]["message"]["content"]
 
-            content_clean = content.strip()
-            if content_clean.startswith("```json"):
-                content_clean = content_clean[7:]
-            if content_clean.startswith("```"):
-                content_clean = content_clean[3:]
-            if content_clean.endswith("```"):
-                content_clean = content_clean[:-3]
+                content_clean = content.strip()
+                if content_clean.startswith("```json"):
+                    content_clean = content_clean[7:]
+                if content_clean.startswith("```"):
+                    content_clean = content_clean[3:]
+                if content_clean.endswith("```"):
+                    content_clean = content_clean[:-3]
 
-            return json.loads(content_clean.strip())
-    except urllib.error.HTTPError as e:
-        st.error(f"Error HTTP ({e.code}) al consultar Groq. Verifica la validez de tu API Key.")
-        return None
-    except Exception as e:
-        st.error(f"Error procesando la solicitud: {e}")
-        return None
+                return json.loads(content_clean.strip())
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and mod != modelos_a_probar[-1]:
+                continue  # Si falla el primer modelo, intenta automáticamente con el segundo
+            st.error(f"Error HTTP ({e.code}) en la API de Groq al usar el modelo '{mod}'. Revisa que tu API Key sea correcta.")
+            return None
+        except Exception as e:
+            st.error(f"Error al procesar la respuesta: {e}")
+            return None
 
 st.divider()
 
