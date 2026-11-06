@@ -66,7 +66,7 @@ with col_sel2:
     chk_falacias = st.checkbox("Falacias y Argumentación Crítica", value=True)
 
 
-# Función para consultar la API de Groq probando modelos disponibles en secuencia
+# Función para consultar la API de Groq con los modelos vigentes de producción
 def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones = []
 
@@ -106,12 +106,10 @@ def consultar_platon_groq(texto, opciones, api_key_val):
 
     client = Groq(api_key=api_key_val.strip())
     
-    # Lista priorizada de modelos activos en Groq
+    # Modelos activos en producción de Groq
     modelos_disponibles = [
-        "llama3-8b-8192",
-        "llama-3.1-8b-instant",
-        "llama3-70b-8192",
-        "mixtral-8x7b-32768"
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant"
     ]
 
     ultimo_error = None
@@ -131,13 +129,13 @@ def consultar_platon_groq(texto, opciones, api_key_val):
             return json.loads(content)
         except Exception as e:
             ultimo_error = e
-            continue  # Si el modelo falla por 404 u otro error, prueba inmediatamente con el siguiente
+            continue
 
     st.error(f"Error al conectar con la API de Groq: {ultimo_error}")
     return None
 
 
-# Función para renderizar los resultados de forma limpia
+# Función para renderizar los resultados
 def mostrar_resultados(resultado, opciones):
     st.success("Análisis completado exitosamente.")
     st.divider()
