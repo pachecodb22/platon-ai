@@ -66,7 +66,7 @@ with col_sel2:
     chk_falacias = st.checkbox("Falacias y Argumentación Crítica", value=True)
 
 
-# Función para consultar la API de Groq con los modelos vigentes de producción
+# Función para consultar la API de Groq detectando automáticamente los modelos de la cuenta
 def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones = []
 
@@ -104,35 +104,51 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     No incluyas explicaciones adicionales fuera del objeto JSON.
     """
 
-    client = Groq(api_key=api_key_val.strip())
-    
-    # Modelos activos en producción de Groq
-    modelos_disponibles = [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant"
-    ]
+    try:
+        client = Groq(api_key=api_key_val.strip())
+        
+        # 1. Obtener la lista real de modelos disponibles para esta API Key
+        modelos_remote = client.models.list()
+        modelos_ids = [m.id for m in modelos_remote.data]
+        
+        # Lista priorizada de preferencia
+        preferencias = [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "llama3-70b-8192",
+            "llama3-8b-8192"
+        ]
+        
+        # Elegir el primer modelo de la preferencia que exista en la cuenta, o el primero disponible
+        modelo_elegido = None
+        for pref in preferencias:
+            if pref in modelos_ids:
+                modelo_elegido = pref
+                break
+                
+        if not modelo_elegido and modelos_ids:
+            modelo_elegido = modelos_ids[0]
+            
+        if not modelo_elegido:
+            st.error("No se encontraron modelos disponibles activos para esta API Key de Groq.")
+            return None
 
-    ultimo_error = None
+        # 2. Ejecutar la llamada con el modelo detectado
+        response = client.chat.completions.create(
+            model=modelo_elegido,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
+            ],
+            temperature=0.2,
+            response_format={"type": "json_object"}
+        )
+        content = response.choices[0].message.content
+        return json.loads(content)
 
-    for modelo in modelos_disponibles:
-        try:
-            response = client.chat.completions.create(
-                model=modelo,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
-                ],
-                temperature=0.2,
-                response_format={"type": "json_object"}
-            )
-            content = response.choices[0].message.content
-            return json.loads(content)
-        except Exception as e:
-            ultimo_error = e
-            continue
-
-    st.error(f"Error al conectar con la API de Groq: {ultimo_error}")
-    return None
+    except Exception as e:
+        st.error(f"Error al procesar la solicitud con Groq: {e}")
+        return None
 
 
 # Función para renderizar los resultados
