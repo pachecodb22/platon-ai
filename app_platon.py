@@ -107,7 +107,7 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     try:
         client = Groq(api_key=api_key_val.strip())
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"},
@@ -186,37 +186,3 @@ if st.button("Analizar Selección con Platón", type="primary", use_container_wi
                     premisas = resultado["premisas_clave"]
                     if isinstance(premisas, list):
                         for p in premisas:
-                            st.markdown(f"* {p}")
-                    else:
-                        st.write(premisas)
-
-                if chk_conclusion and "conclusiones" in resultado:
-                    st.subheader("Conclusión del Autor")
-                    st.write(resultado["conclusiones"])
-
-            with col_der:
-                if chk_falacias and "auditoria_critica" in resultado:
-                    st.header("Auditoría Crítica")
-                    auditoria = resultado["auditoria_critica"]
-
-                    falacias = auditoria.get("falacias_logicas", [])
-                    st.subheader(f"Falacias Lógicas ({len(falacias)})")
-                    if falacias:
-                        for f in falacias:
-                            with st.expander(f"Falacia: {f.get('tipo', 'No especificada')}"):
-                                st.markdown(f"**Fragmento:** *\"{f.get('fragmento', '')}\"*")
-                                st.markdown(f"**Razón:** {f.get('explicacion', '')}")
-                    else:
-                        st.caption("No se detectaron falacias explícitas.")
-
-                    premisas_sin_respaldo = auditoria.get("premisas_no_justificadas", [])
-                    if premisas_sin_respaldo:
-                        st.subheader(f"Premisas sin Justificación ({len(premisas_sin_respaldo)})")
-                        for p in premisas_sin_respaldo:
-                            st.error(p)
-
-                    saltos = auditoria.get("saltos_logicos", [])
-                    if saltos:
-                        st.subheader(f"Saltos Lógicos ({len(saltos)})")
-                        for s in saltos:
-                            st.warning(s)
