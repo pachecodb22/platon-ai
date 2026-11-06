@@ -1,6 +1,10 @@
 import json
+import io
 import streamlit as st
 from groq import Groq
+from pypdf import PdfReader
+from docx import Document
+from fpdf import FPDF
 
 # Configuración de la página
 st.set_page_config(
@@ -35,9 +39,54 @@ modulo_seleccionado = st.sidebar.radio(
     ]
 )
 
+# --- FUNCIONES PARA LECTURA DE ARCHIVOS ---
+def extraer_texto_pdf(file):
+    pdf_reader = PdfReader(file)
+    texto = ""
+    for page in pdf_reader.pages:
+        t = page.extract_text()
+        if t:
+            texto += t + "\n"
+    return texto
+
+def extraer_texto_docx(file):
+    doc = Document(file)
+    texto = []
+    for para in doc.paragraphs:
+        if para.text:
+            texto.append(para.text)
+    return "\n".join(texto)
+
+# --- FUNCIONES PARA GENERACIÓN DE ARCHIVOS DE SALIDA ---
+def generar_docx(contenido_texto, titulo="Reporte Platón AI"):
+    doc = Document()
+    doc.add_heading(titulo, level=1)
+    for linea in contenido_texto.split("\n"):
+        doc.add_paragraph(linea)
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
+
+def generar_pdf(contenido_texto, titulo="Reporte Platón AI"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=14, style="B")
+    pdf.cell(0, 10, txt=titulo, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(5)
+    pdf.set_font("Helvetica", size=10)
+    
+    # Manejar caracteres y saltos de línea para evitar problemas de codificación latin-1
+    texto_limpio = contenido_texto.encode('latin-1', 'replace').decode('latin-1')
+    
+    for linea in texto_limpio.split("\n"):
+        pdf.multi_cell(0, 6, txt=linea)
+    
+    return bytes(pdf.output())
+
+
 # Entrada universal de texto
 st.subheader("Entrada de Texto")
-tab_paste, tab_file = st.tabs(["Pegar texto directamente", "Cargar archivo .txt"])
+tab_paste, tab_file = st.tabs(["Pegar texto directamente", "Cargar archivo (.txt, .docx, .pdf)"])
 
 ensayo_texto = ""
 
@@ -47,9 +96,18 @@ with tab_paste:
         ensayo_texto = pasted_text
 
 with tab_file:
-    uploaded_file = st.file_uploader("Carga tu archivo en formato de texto plano", type=["txt"])
+    uploaded_file = st.file_uploader(
+        "Carga tu archivo de ensayo", 
+        type=["txt", "docx", "pdf"]
+    )
     if uploaded_file is not None:
-        ensayo_texto = uploaded_file.read().decode("utf-8")
+        file_type = uploaded_file.name.split(".")[-1].lower()
+        if file_type == "txt":
+            ensayo_texto = uploaded_file.read().decode("utf-8")
+        elif file_type == "docx":
+            ensayo_texto = extraer_texto_docx(uploaded_file)
+        elif file_type == "pdf":
+            ensayo_texto = extraer_texto_pdf(uploaded_file)
 
 st.divider()
 
@@ -92,15 +150,46 @@ def consultar_groq(prompt_input, api_key_val, json_mode=True):
         st.error(f"Error de conexión con la API de Groq: {e}")
         return None
 
-# Validaciones comunes
 def validar_ejecucion():
     if not api_key.strip():
         st.warning("Por favor ingresa tu Groq API Key en la barra lateral.")
         return False
     if not ensayo_texto.strip():
-        st.warning("Por favor ingresa un texto antes de ejecutar el análisis.")
+        st.warning("Por favor ingresa o carga un texto antes de ejecutar el análisis.")
         return False
     return True
+
+# Componente reutilizable de descarga multiformato
+def mostrar_botones_descarga(texto_reporte, nombre_base="reporte_platon"):
+    st.subheader("📥 Exportar Resultados")
+    col_d1, col_d2, col_d3 = st.columns(3)
+    
+    with col_d1:
+        st.download_button(
+            "Descargar .txt",
+            data=texto_reporte,
+            file_name=f"{nombre_base}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+    with col_d2:
+        docx_bytes = generar_docx(texto_reporte, titulo=nombre_base.replace("_", " ").upper())
+        st.download_button(
+            "Descargar Word (.docx)",
+            data=docx_bytes,
+            file_name=f"{nombre_base}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
+        )
+    with col_d3:
+        pdf_bytes = generar_pdf(texto_reporte, titulo=nombre_base.replace("_", " ").upper())
+        st.download_button(
+            "Descargar PDF (.pdf)",
+            data=pdf_bytes,
+            file_name=f"{nombre_base}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
 
 
 # ==========================================
@@ -143,9 +232,8 @@ TEXTO:
                 st.subheader("Conceptos y Términos Clave")
                 st.write(", ".join(res.get("conceptos_clave", [])))
                 
-                # Reporte descargable
-                reporte_txt = f"SÍNTESIS GENERAL:\n{res.get('resumen_general', '')}\n\nPUNTOS FUERTES:\n" + "\n".join(res.get('puntos_fuertes', []))
-                st.download_button("📥 Descargar Reporte (.txt)", data=reporte_txt, file_name="resumen_platon.txt", mime="text/plain")
+                reporte_txt = f"SÍNTESIS GENERAL:\n{res.get('resumen_general', '')}\n\nPUNTOS FUERTES:\n" + "\n".join(res.get('puntos_fuertes', [])) + "\n\nASPECTOS A MEJORAR:\n" + "\n".join(res.get('aspectos_a_mejorar', []))
+                mostrar_botones_descarga(reporte_txt, nombre_base="resumen_ejecutivo_platon")
 
 
 # ==========================================
@@ -176,13 +264,18 @@ TEXTO:
                 st.write(res.get("diagnostico_estilo", ""))
                 
                 st.subheader("Ambigüedades y Sugerencias de Mejora")
+                amb_textos = []
                 for amb in res.get("ambiguedades", []):
                     with st.expander(f"Fragmento: \"{amb.get('fragmento', '')}\""):
                         st.write(f"**Sugerencia:** {amb.get('sugerencia', '')}")
+                    amb_textos.append(f"- Fragmento: {amb.get('fragmento', '')} | Sugerencia: {amb.get('sugerencia', '')}")
                         
                 st.subheader("Repeticiones o Redundancias Detectadas")
                 for rep in res.get("repeticiones_muletillas", []):
                     st.markdown(f"* {rep}")
+
+                reporte_txt = f"REGISTRO ACADÉMICO: {res.get('nivel_academico', '')}\n\nDIAGNÓSTICO:\n{res.get('diagnostico_estilo', '')}\n\nAMBIGÜEDADES:\n" + "\n".join(amb_textos)
+                mostrar_botones_descarga(reporte_txt, nombre_base="analisis_redaccion_platon")
 
 
 # ==========================================
@@ -212,6 +305,7 @@ TEXTO:
                 st.subheader("Tesis Central Detectada")
                 st.info(res.get("tesis_central", ""))
                 
+                falacias_txt = []
                 col_f, col_p = st.columns(2)
                 with col_f:
                     st.subheader("Falacias Lógicas")
@@ -221,6 +315,7 @@ TEXTO:
                             with st.expander(f"Falacia: {f.get('tipo', 'N/A')}"):
                                 st.markdown(f"**Fragmento:** *\"{f.get('fragmento', '')}\"*")
                                 st.markdown(f"**Explicación:** {f.get('explicacion', '')}")
+                            falacias_txt.append(f"- Tipo: {f.get('tipo', '')} | Fragmento: {f.get('fragmento', '')} | Razón: {f.get('explicacion', '')}")
                     else:
                         st.caption("No se detectaron falacias explícitas.")
                         
@@ -232,6 +327,9 @@ TEXTO:
                     st.subheader("Saltos Lógicos")
                     for s_item in res.get("saltos_logicos", []):
                         st.warning(s_item)
+
+                reporte_txt = f"TESIS CENTRAL:\n{res.get('tesis_central', '')}\n\nFALACIAS LÓGICAS:\n" + "\n".join(falacias_txt) + "\n\nPREMISAS SIN JUSTIFICAR:\n" + "\n".join(res.get('premisas_no_justificadas', []))
+                mostrar_botones_descarga(reporte_txt, nombre_base="auditoria_argumentativa_platon")
 
 
 # ==========================================
@@ -259,11 +357,6 @@ TEXTO A REFORMULAR:
                 
             if texto_reformulado:
                 st.subheader("Propuesta Reformulada")
-                st.text_area("Resultado:", value=texto_reformulado, height=220)
+                st.text_area("Resultado:", value=texto_reformulado, height=260)
                 
-                st.download_button(
-                    "📥 Descargar Texto Reformulado (.txt)",
-                    data=texto_reformulado,
-                    file_name="texto_reformulado_platon.txt",
-                    mime="text/plain"
-                )
+                mostrar_botones_descarga(texto_reformulado, nombre_base="texto_reformulado_platon")
