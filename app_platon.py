@@ -124,6 +124,76 @@ def consultar_platon_groq(texto, opciones, api_key_val):
         return None
 
 
+# Función para renderizar los resultados de forma limpia
+def mostrar_resultados(resultado, opciones):
+    st.success("Análisis completado exitosamente.")
+    st.divider()
+
+    if opciones["resumen"] and "resumen" in resultado:
+        st.header("Resumen Ejecutivo")
+        res = resultado["resumen"]
+        r_col1, r_col2 = st.columns(2)
+        r_col1.success(f"**Puntos fuertes:**\n\n{res.get('puntos_fuertes', 'N/A')}")
+        r_col2.warning(f"**Aspectos a mejorar:**\n\n{res.get('fallas_principales', 'N/A')}")
+        st.divider()
+
+    col_izq, col_der = st.columns(2)
+
+    with col_izq:
+        if opciones["tesis"] and "tesis_principal" in resultado:
+            st.subheader("Tesis Central")
+            st.info(resultado["tesis_principal"])
+
+        if opciones["marco"] and "marco_teorico" in resultado:
+            st.subheader("Marco Teórico y Conceptos")
+            marco = resultado["marco_teorico"]
+            if isinstance(marco, list):
+                for m in marco:
+                    st.markdown(f"* {m}")
+            else:
+                st.write(marco)
+
+        if opciones["premisas"] and "premisas_clave" in resultado:
+            st.subheader("Premisas Clave")
+            premisas = resultado["premisas_clave"]
+            if isinstance(premisas, list):
+                for p in premisas:
+                    st.markdown(f"* {p}")
+            else:
+                st.write(premisas)
+
+        if opciones["conclusion"] and "conclusiones" in resultado:
+            st.subheader("Conclusión del Autor")
+            st.write(resultado["conclusiones"])
+
+    with col_der:
+        if opciones["falacias"] and "auditoria_critica" in resultado:
+            st.header("Auditoría Crítica")
+            auditoria = resultado["auditoria_critica"]
+
+            falacias = auditoria.get("falacias_logicas", [])
+            st.subheader(f"Falacias Lógicas ({len(falacias)})")
+            if falacias:
+                for f in falacias:
+                    with st.expander(f"Falacia: {f.get('tipo', 'No especificada')}"):
+                        st.markdown(f"**Fragmento:** *\"{f.get('fragmento', '')}\"*")
+                        st.markdown(f"**Razón:** {f.get('explicacion', '')}")
+            else:
+                st.caption("No se detectaron falacias explícitas.")
+
+            premisas_sin_respaldo = auditoria.get("premisas_no_justificadas", [])
+            if premisas_sin_respaldo:
+                st.subheader(f"Premisas sin Justificación ({len(premisas_sin_respaldo)})")
+                for p_item in premisas_sin_respaldo:
+                    st.error(p_item)
+
+            saltos = auditoria.get("saltos_logicos", [])
+            if saltos:
+                st.subheader(f"Saltos Lógicos ({len(saltos)})")
+                for s_item in saltos:
+                    st.warning(s_item)
+
+
 st.divider()
 
 # Botón de Procesamiento
@@ -148,64 +218,4 @@ if st.button("Analizar Selección con Platón", type="primary", use_container_wi
             resultado = consultar_platon_groq(ensayo_texto, opciones_seleccionadas, api_key)
 
         if resultado:
-            st.success("Análisis completado exitosamente.")
-            st.divider()
-
-            if chk_resumen and "resumen" in resultado:
-                st.header("Resumen Ejecutivo")
-                res = resultado["resumen"]
-                r_col1, r_col2 = st.columns(2)
-                with r_col1:
-                    st.success(f"**Puntos fuertes:**\n\n{res.get('puntos_fuertes', 'N/A')}")
-                with r_col2:
-                    st.warning(f"**Aspectos a mejorar:**\n\n{res.get('fallas_principales', 'N/A')}")
-                st.divider()
-
-            col_izq, col_der = st.columns(2)
-
-            with col_izq:
-                if chk_tesis and "tesis_principal" in resultado:
-                    st.subheader("Tesis Central")
-                    st.info(resultado["tesis_principal"])
-
-                if chk_marco and "marco_teorico" in resultado:
-                    st.subheader("Marco Teórico y Conceptos")
-                    marco = resultado["marco_teorico"]
-                    if isinstance(marco, list):
-                        for m in marco:
-                            st.markdown(f"* {m}")
-                    else:
-                        st.write(marco)
-
-                if chk_premisas and "premisas_clave" in resultado:
-                    st.subheader("Premisas Clave")
-                    premisas = resultado["premisas_clave"]
-                    if isinstance(premisas, list):
-                        for p in premisas:
-                            st.markdown(f"* {p}")
-                    else:
-                        st.write(premisas)
-
-                if chk_conclusion and "conclusiones" in resultado:
-                    st.subheader("Conclusión del Autor")
-                    st.write(resultado["conclusiones"])
-
-            with col_der:
-                if chk_falacias and "auditoria_critica" in resultado:
-                    st.header("Auditoría Crítica")
-                    auditoria = resultado["auditoria_critica"]
-
-                    falacias = auditoria.get("falacias_logicas", [])
-                    st.subheader(f"Falacias Lógicas ({len(falacias)})")
-                    if falacias:
-                        for f in falacias:
-                            with st.expander(f"Falacia: {f.get('tipo', 'No especificada')}"):
-                                st.markdown(f"**Fragmento:** *\"{f.get('fragmento', '')}\"*")
-                                st.markdown(f"**Razón:** {f.get('explicacion', '')}")
-                    else:
-                        st.caption("No se detectaron falacias explícitas.")
-
-                    premisas_sin_respaldo = auditoria.get("premisas_no_justificadas", [])
-                    if premisas_sin_respaldo:
-                        st.subheader(f"Premisas sin Justificación ({len(premisas_sin_respaldo)})")
-                        for p in premisas_sin_resp
+            mostrar_resultados(resultado, opciones_seleccionadas)
