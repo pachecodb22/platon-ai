@@ -66,7 +66,7 @@ with col_sel2:
     chk_falacias = st.checkbox("Falacias y Argumentación Crítica", value=True)
 
 
-# Función para consultar la API de Groq mediante el SDK oficial
+# Función para consultar la API de Groq probando modelos disponibles en secuencia
 def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones = []
 
@@ -104,24 +104,37 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     No incluyas explicaciones adicionales fuera del objeto JSON.
     """
 
-    try:
-        client = Groq(api_key=api_key_val.strip())
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
-            ],
-            temperature=0.2,
-            response_format={"type": "json_object"}
-        )
+    client = Groq(api_key=api_key_val.strip())
+    
+    # Lista priorizada de modelos activos en Groq
+    modelos_disponibles = [
+        "llama3-8b-8192",
+        "llama-3.1-8b-instant",
+        "llama3-70b-8192",
+        "mixtral-8x7b-32768"
+    ]
 
-        content = response.choices[0].message.content
-        return json.loads(content)
+    ultimo_error = None
 
-    except Exception as e:
-        st.error(f"Error en la consulta a Groq: {e}")
-        return None
+    for modelo in modelos_disponibles:
+        try:
+            response = client.chat.completions.create(
+                model=modelo,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
+                ],
+                temperature=0.2,
+                response_format={"type": "json_object"}
+            )
+            content = response.choices[0].message.content
+            return json.loads(content)
+        except Exception as e:
+            ultimo_error = e
+            continue  # Si el modelo falla por 404 u otro error, prueba inmediatamente con el siguiente
+
+    st.error(f"Error al conectar con la API de Groq: {ultimo_error}")
+    return None
 
 
 # Función para renderizar los resultados de forma limpia
