@@ -1,19 +1,15 @@
-import streamlit as st
 import json
-import urllib.request
-import urllib.error
+import streamlit as st
+from groq import Groq
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Platón AI - Auditoría de Ensayos",
-    page_icon="🏛️",
-    layout="wide"
+    page_title="Platón AI - Auditoría de Ensayos", page_icon="🏛️", layout="wide"
 )
 
 # Estilo y Título principal
 st.title("🏛️ Platón AI")
 
-# Breve resumen explicativo
 st.markdown("""
 **¿Qué es Platón AI?**  
 Platón AI es un asistente de análisis del discurso y auditoría lógica diseñado para evaluar ensayos y textos académicos. 
@@ -23,12 +19,12 @@ identificando falacias lógicas, afirmaciones sin respaldo y saltos en la infere
 
 st.divider()
 
-# Sidebar - Configuración de API Key en la Nube
+# Sidebar - Configuración de API Key
 st.sidebar.header("Configuración del Sistema")
 api_key = st.sidebar.text_input(
     "Groq API Key:",
     type="password",
-    help="Ingresa tu API Key de Groq para procesar la IA en la nube."
+    help="Ingresa tu API Key de Groq para procesar la IA en la nube.",
 )
 
 # Entrada de texto
@@ -53,7 +49,9 @@ st.divider()
 
 # Casillas de Selección
 st.subheader("2. Selecciona los análisis que deseas realizar")
-st.caption("Nota: Seleccionar solo los análisis requeridos optimizará el tiempo de respuesta del sistema.")
+st.caption(
+    "Nota: Seleccionar solo los análisis requeridos optimizará el tiempo de respuesta del sistema."
+)
 
 col_sel1, col_sel2 = st.columns(2)
 
@@ -67,12 +65,15 @@ with col_sel2:
     chk_conclusion = st.checkbox("Conclusión del Autor", value=False)
     chk_falacias = st.checkbox("Falacias y Argumentación Crítica", value=True)
 
-# Función para consultar la API de Groq en la nube
+
+# Función para consultar la API de Groq mediante el SDK oficial
 def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones = []
 
     if opciones["resumen"]:
-        instrucciones.append('- "resumen": {"puntos_fuertes": "Aspectos logrados del ensayo", "fallas_principales": "Fallas generales"}')
+        instrucciones.append(
+            '- "resumen": {"puntos_fuertes": "Aspectos logrados del ensayo", "fallas_principales": "Fallas generales"}'
+        )
 
     if opciones["tesis"]:
         instrucciones.append('- "tesis_principal": "La hipótesis central del autor"')
@@ -81,13 +82,17 @@ def consultar_platon_groq(texto, opciones, api_key_val):
         instrucciones.append('- "marco_teorico": ["Lista de autores o conceptos clave"]')
 
     if opciones["premisas"]:
-        instrucciones.append('- "premisas_clave": ["Lista de argumentos o evidencias principales"]')
+        instrucciones.append(
+            '- "premisas_clave": ["Lista de argumentos o evidencias principales"]'
+        )
 
     if opciones["conclusion"]:
         instrucciones.append('- "conclusiones": "Cierre o hallazgos del autor"')
 
     if opciones["falacias"]:
-        instrucciones.append('- "auditoria_critica": {"falacias_logicas": [{"tipo": "...", "fragmento": "...", "explicacion": "..."}], "premisas_no_justificadas": ["..."], "saltos_logicos": ["..."]}')
+        instrucciones.append(
+            '- "auditoria_critica": {"falacias_logicas": [{"tipo": "...", "fragmento": "...", "explicacion": "..."}], "premisas_no_justificadas": ["..."], "saltos_logicos": ["..."]}'
+        )
 
     instrucciones_str = "\n".join(instrucciones)
 
@@ -96,57 +101,28 @@ def consultar_platon_groq(texto, opciones, api_key_val):
 
     {instrucciones_str}
 
-    No incluyas explicaciones adicionales, ni etiquetas Markdown de código fuera del objeto JSON.
+    No incluyas explicaciones adicionales fuera del objeto JSON.
     """
 
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    
-    # Intentamos primero con el modelo oficial estable de producción
-    modelos_a_probar = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-    
-    clean_key = api_key_val.strip()
-
-    for mod in modelos_a_probar:
-        payload = {
-            "model": mod,
-            "messages": [
+    try:
+        client = Groq(api_key=api_key_val.strip())
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"}
+                {"role": "user", "content": f"Analiza el siguiente ensayo:\n\n{texto}"},
             ],
-            "temperature": 0.2
-        }
+            temperature=0.2,
+            response_format={"type": "json_object"},
+        )
 
-        data = json.dumps(payload).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {clean_key}"
-        }
+        content = response.choices[0].message.content
+        return json.loads(content)
 
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    except Exception as e:
+        st.error(f"Error en la consulta a Groq: {e}")
+        return None
 
-        try:
-            with urllib.request.urlopen(req) as response:
-                res_body = response.read().decode("utf-8")
-                res_json = json.loads(res_body)
-                content = res_json["choices"][0]["message"]["content"]
-
-                content_clean = content.strip()
-                if content_clean.startswith("```json"):
-                    content_clean = content_clean[7:]
-                if content_clean.startswith("```"):
-                    content_clean = content_clean[3:]
-                if content_clean.endswith("```"):
-                    content_clean = content_clean[:-3]
-
-                return json.loads(content_clean.strip())
-        except urllib.error.HTTPError as e:
-            if e.code == 404 and mod != modelos_a_probar[-1]:
-                continue  # Si falla el primer modelo, intenta automáticamente con el segundo
-            st.error(f"Error HTTP ({e.code}) en la API de Groq al usar el modelo '{mod}'. Revisa que tu API Key sea correcta.")
-            return None
-        except Exception as e:
-            st.error(f"Error al procesar la respuesta: {e}")
-            return None
 
 st.divider()
 
@@ -158,18 +134,22 @@ if st.button("Analizar Selección con Platón", type="primary", use_container_wi
         "marco": chk_marco,
         "premisas": chk_premisas,
         "conclusion": chk_conclusion,
-        "falacias": chk_falacias
+        "falacias": chk_falacias,
     }
 
     if not api_key.strip():
         st.warning("Por favor ingresa tu Groq API Key en la barra lateral izquierda.")
     elif not any(opciones_seleccionadas.values()):
-        st.warning("Por favor marca al menos una casilla de análisis antes de ejecutar Platón.")
+        st.warning(
+            "Por favor marca al menos una casilla de análisis antes de ejecutar Platón."
+        )
     elif not ensayo_texto.strip():
         st.warning("Por favor ingresa o carga un ensayo antes de iniciar el análisis.")
     else:
         with st.spinner("Platón está procesando los módulos en la nube a través de Groq..."):
-            resultado = consultar_platon_groq(ensayo_texto, opciones_seleccionadas, api_key)
+            resultado = consultar_platon_groq(
+                ensayo_texto, opciones_seleccionadas, api_key
+            )
 
         if resultado:
             st.success("Análisis completado exitosamente.")
