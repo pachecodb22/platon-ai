@@ -68,18 +68,31 @@ def generar_docx(contenido_texto, titulo="Reporte Platón AI"):
     return bio.getvalue()
 
 def generar_pdf(contenido_texto, titulo="Reporte Platón AI"):
-    pdf = FPDF()
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_margins(left=15, top=15, right=15)
+    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
+    
+    # Título
     pdf.set_font("Helvetica", size=14, style="B")
-    pdf.cell(0, 10, txt=titulo, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(w=0, h=10, txt=titulo, align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(5)
+    
+    # Cuerpo del texto
     pdf.set_font("Helvetica", size=10)
     
-    texto_limpio = contenido_texto.encode('latin-1', 'replace').decode('latin-1')
+    # Sanitización de texto para fpdf (sustitución de tabs y manejo de encoding)
+    texto_limpio = contenido_texto.replace("\t", "    ")
+    texto_limpio = texto_limpio.encode('latin-1', 'replace').decode('latin-1')
+    
+    ancho_util = pdf.epw  # Ancho efectivo de la página (Effective Page Width)
     
     for linea in texto_limpio.split("\n"):
-        pdf.multi_cell(0, 6, txt=linea)
-    
+        if linea.strip() == "":
+            pdf.ln(4)
+        else:
+            pdf.multi_cell(w=ancho_util, h=6, txt=linea, new_x="LMARGIN", new_y="NEXT")
+            
     return bytes(pdf.output())
 
 
