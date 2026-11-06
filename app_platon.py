@@ -134,7 +134,7 @@ def consultar_groq(prompt_input, json_mode=True):
                 kwargs = {
                     "model": modelo_id,
                     "messages": [{"role": "user", "content": prompt_input}],
-                    "temperature": 0.2
+                    "temperature": 0.3
                 }
                 if json_mode:
                     kwargs["response_format"] = {"type": "json_object"}
@@ -337,26 +337,36 @@ TEXTO:
 # PESTAÑA 4: REFORMULADOR ACADÉMICO
 # ------------------------------------------
 with tab_reformulador:
-    st.markdown("Reescribe pasajes para elevar su rigor terminológico o corregir fallas de argumentación.")
+    st.markdown("Reescribe el texto de forma orgánica, elevando su registro estilístico y solucionando deficiencias lógicas.")
     
     estilo_reform = st.selectbox(
         "Selecciona el enfoque de reescritura:",
-        ["Formato Académico Riguroso (Formal)", "Conciso y Directo", "Eliminación de Falacias / Mayor Neutralidad"]
+        [
+            "Eliminación de Falacias y Rigor Académico (Recomendado)",
+            "Formato Académico Formal y Elegante",
+            "Síntesis Concisa y Directa"
+        ]
     )
     
     if st.button("Reformular Texto", type="primary", use_container_width=True, key="btn_reformulador"):
         if validar_ejecucion():
-            prompt = f"""Reescribe el siguiente texto con un enfoque de '{estilo_reform}'. 
-Conserva la idea central, elimina sesgos, mejora la precisión léxica y devuelve la propuesta reescrita en texto plano continuo.
+            prompt_reformulacion = f"""Eres un editor y redactor académico de nivel doctoral. 
 
-TEXTO A REFORMULAR:
+Instrucciones de reescritura:
+1. Lee el siguiente contenido y extrae ÚNICAMENTE el cuerpo argumentativo o el texto del ensayo.
+2. IGNORA explícitamente cualquier metadato, encabezado de prueba, números de página, notas de pie o marcadores de archivo (por ejemplo: "Documento de prueba...", "Página X de Y", "Nota de auditoría...").
+3. Reescribe el borrador de manera completamente ORGÁNICA y FLUIDA bajo un enfoque de '{estilo_reform}'.
+4. Asegúrate de conectar las ideas con transiciones naturales, eliminar sesgos ad hominem o generalizaciones apresuradas, y elevar la precisión terminológica.
+5. Devuelve EXCLUSIVAMENTE el texto reescrito en párrafos académicos continuos, sin introducciones del tipo "Aquí está la versión reformulada:" ni comentarios adicionales.
+
+TEXTO FUENTE:
 {ensayo_texto}"""
             
-            with st.spinner("Reformulando borrador..."):
-                texto_reformulado = consultar_groq(prompt, json_mode=False)
+            with st.spinner("Reescribiendo borrador de forma orgánica..."):
+                texto_reformulado = consultar_groq(prompt_reformulacion, json_mode=False)
                 
             if texto_reformulado:
                 st.subheader("Propuesta Reformulada")
-                st.text_area("Resultado:", value=texto_reformulado, height=260)
+                st.write(texto_reformulado)
                 
                 mostrar_botones_descarga(texto_reformulado, nombre_base="texto_reformulado_platon")
