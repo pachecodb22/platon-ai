@@ -6,6 +6,9 @@ from pypdf import PdfReader
 from docx import Document
 from fpdf import FPDF
 
+# Configuración del límite de caracteres para la API (aprox. 3.000 palabras / 6-8 páginas)
+MAX_CARACTERES = 15000
+
 # 1. Configuración global de la página
 st.set_page_config(
     page_title="Platón AI - Auditoría y Redacción Académica",
@@ -83,6 +86,8 @@ def generar_pdf(contenido_texto, titulo="Reporte Platón AI"):
 
 # 3. ENTRADA UNIVERSAL DE TEXTO
 st.header("1. Cargar o Pegar Ensayo")
+st.caption(f"ℹ️ **Límite de procesamiento:** Platón AI analiza hasta un máximo de **{MAX_CARACTERES:,} caracteres** (~6-8 páginas) por consulta para garantizar estabilidad.")
+
 tab_paste, tab_file = st.tabs(["📝 Pegar texto directamente", "📁 Cargar archivo (.txt, .docx, .pdf)"])
 
 ensayo_texto = ""
@@ -105,6 +110,14 @@ with tab_file:
             ensayo_texto = extraer_texto_docx(uploaded_file)
         elif file_type == "pdf":
             ensayo_texto = extraer_texto_pdf(uploaded_file)
+
+# Indicador de estado y truncado si excede el máximo
+texto_procesable = ensayo_texto
+if len(ensayo_texto) > 0:
+    st.write(f"📊 **Caracteres detectados:** {len(ensayo_texto):,} / {MAX_CARACTERES:,}")
+    if len(ensayo_texto) > MAX_CARACTERES:
+        st.warning(f"⚠️ El documento excede el límite recomendado ({len(ensayo_texto):,} caracteres). Platón AI procesará únicamente los primeros {MAX_CARACTERES:,} caracteres para el análisis.")
+        texto_procesable = ensayo_texto[:MAX_CARACTERES]
 
 st.divider()
 
@@ -134,7 +147,7 @@ def consultar_groq(prompt_input, json_mode=True):
                 kwargs = {
                     "model": modelo_id,
                     "messages": [{"role": "user", "content": prompt_input}],
-                    "temperature": 0.3
+                    "temperature": 0.2
                 }
                 if json_mode:
                     kwargs["response_format"] = {"type": "json_object"}
@@ -145,14 +158,14 @@ def consultar_groq(prompt_input, json_mode=True):
             except Exception:
                 continue
 
-        st.error("Error al procesar la solicitud con los modelos disponibles.")
+        st.error("Error al procesar la solicitud con los modelos disponibles. Intenta recortar el fragmento.")
         return None
     except Exception as e:
         st.error(f"Error de conexión con el servicio en la nube: {e}")
         return None
 
 def validar_ejecucion():
-    if not ensayo_texto.strip():
+    if not texto_procesable.strip():
         st.warning("Por favor ingresa o carga un texto antes de ejecutar el análisis.")
         return False
     return True
@@ -216,7 +229,7 @@ with tab_resumen:
 }}
 
 TEXTO:
-{ensayo_texto}"""
+{texto_procesable}"""
             
             with st.spinner("Procesando resumen ejecutivo..."):
                 res = consultar_groq(prompt, json_mode=True)
@@ -258,7 +271,7 @@ with tab_redaccion:
 }}
 
 TEXTO:
-{ensayo_texto}"""
+{texto_procesable}"""
             
             with st.spinner("Evaluando calidad sintáctica y estilística..."):
                 res = consultar_groq(prompt, json_mode=True)
@@ -298,7 +311,7 @@ with tab_auditoria:
 }}
 
 TEXTO:
-{ensayo_texto}"""
+{texto_procesable}"""
             
             with st.spinner("Realizando auditoría lógica en el servidor..."):
                 res = consultar_groq(prompt, json_mode=True)
@@ -360,7 +373,7 @@ Instrucciones de reescritura:
 5. Devuelve EXCLUSIVAMENTE el texto reescrito en párrafos académicos continuos, sin introducciones del tipo "Aquí está la versión reformulada:" ni comentarios adicionales.
 
 TEXTO FUENTE:
-{ensayo_texto}"""
+{texto_procesable}"""
             
             with st.spinner("Reescribiendo borrador de forma orgánica..."):
                 texto_reformulado = consultar_groq(prompt_reformulacion, json_mode=False)
