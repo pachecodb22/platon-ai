@@ -66,7 +66,7 @@ with col_sel2:
     chk_falacias = st.checkbox("Falacias y Argumentación Crítica", value=True)
 
 
-# Función para consultar la API de Groq priorizando el modelo de Google (gemma2-9b-it)
+# Función para consultar la API de Groq inspeccionando los modelos activos de la cuenta
 def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones = []
 
@@ -105,35 +105,46 @@ No incluyas explicaciones adicionales ni texto fuera del objeto JSON.
 ENSAYO A ANALIZAR:
 {texto}"""
 
-    client = Groq(api_key=api_key_val.strip())
-    
-    # Prioridad: 1° Gemma (Google), 2° LLaMA 3.3 (Meta), 3° LLaMA 3.1 (Meta)
-    modelos_produccion = [
-        "gemma2-9b-it",
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant"
-    ]
+    try:
+        client = Groq(api_key=api_key_val.strip())
+        
+        # 1. Inspeccionar qué modelos de chat están realmente activos en la API Key
+        modelos_disponibles = client.models.list()
+        
+        # Filtro estricto: solo modelos válidos de texto/chat
+        modelos_chat = [
+            m.id for m in modelos_disponibles.data 
+            if not m.id.startswith("whisper") 
+            and not m.id.startswith("llama-guard")
+            and "decommissioned" not in m.id
+        ]
+        
+        if not modelos_chat:
+            st.error("No se encontraron modelos de chat activos asociados a tu API Key.")
+            return None
 
-    ultimo_error = None
+        # 2. Ejecutar la llamada probando los modelos reales devueltos por la API
+        ultimo_error = None
+        for modelo_id in modelos_chat:
+            try:
+                response = client.chat.completions.create(
+                    model=modelo_id,
+                    messages=[{"role": "user", "content": prompt_unico}],
+                    temperature=0.2,
+                    response_format={"type": "json_object"}
+                )
+                content = response.choices[0].message.content
+                return json.loads(content)
+            except Exception as e:
+                ultimo_error = e
+                continue
 
-    for m_id in modelos_produccion:
-        try:
-            response = client.chat.completions.create(
-                model=m_id,
-                messages=[
-                    {"role": "user", "content": prompt_unico}
-                ],
-                temperature=0.2,
-                response_format={"type": "json_object"}
-            )
-            content = response.choices[0].message.content
-            return json.loads(content)
-        except Exception as e:
-            ultimo_error = e
-            continue
+        st.error(f"Error al procesar la solicitud con Groq: {ultimo_error}")
+        return None
 
-    st.error(f"Error al procesar la solicitud con Groq: {ultimo_error}")
-    return None
+    except Exception as e:
+        st.error(f"Error de autenticación o conexión con la API de Groq: {e}")
+        return None
 
 
 # Función para renderizar los resultados
