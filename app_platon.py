@@ -75,7 +75,6 @@ def generar_pdf(contenido_texto, titulo="Reporte Platón AI"):
     pdf.ln(5)
     pdf.set_font("Helvetica", size=10)
     
-    # Manejar caracteres y saltos de línea para evitar problemas de codificación latin-1
     texto_limpio = contenido_texto.encode('latin-1', 'replace').decode('latin-1')
     
     for linea in texto_limpio.split("\n"):
@@ -248,7 +247,7 @@ elif modulo_seleccionado == "2. Análisis de Redacción":
             prompt = f"""Eres un editor académico riguroso. Analiza la redacción del texto y responde ÚNICAMENTE en formato JSON:
 {{
     "diagnostico_estilo": "Evaluación del tono y registro académico",
-    "ambiguedades": [{"fragmento": "...", "sugerencia": "..."}],
+    "ambiguedades": [{{"fragmento": "...", "sugerencia": "..."}}],
     "repeticiones_muletillas": ["Palabras o estructuras sobreusadas"],
     "nivel_academico": "Alto / Medio / Bajo"
 }}
@@ -290,7 +289,7 @@ elif modulo_seleccionado == "3. Auditoría Argumentativa":
             prompt = f"""Eres Platón, auditor académico. Analiza el ensayo y responde ÚNICAMENTE en JSON:
 {{
     "tesis_central": "La hipótesis principal del autor",
-    "falacias_logicas": [{"tipo": "...", "fragmento": "...", "explicacion": "..."}],
+    "falacias_logicas": [{{"tipo": "...", "fragmento": "...", "explicacion": "..."}}],
     "premisas_no_justificadas": ["..."],
     "saltos_logicos": ["..."]
 }}
