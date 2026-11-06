@@ -66,7 +66,7 @@ with col_sel2:
     chk_falacias = st.checkbox("Falacias y Argumentación Crítica", value=True)
 
 
-# Función para consultar la API de Groq detectando automáticamente los modelos de la cuenta
+# Función para consultar la API de Groq filtrando exclusivamente modelos de texto (Chat)
 def consultar_platon_groq(texto, opciones, api_key_val):
     instrucciones = []
 
@@ -107,11 +107,14 @@ def consultar_platon_groq(texto, opciones, api_key_val):
     try:
         client = Groq(api_key=api_key_val.strip())
         
-        # 1. Obtener la lista real de modelos disponibles para esta API Key
+        # 1. Obtener modelos remotos y filtrar únicamente los modelos de chat (excluyendo whisper/audio)
         modelos_remote = client.models.list()
-        modelos_ids = [m.id for m in modelos_remote.data]
+        modelos_texto = [
+            m.id for m in modelos_remote.data 
+            if not m.id.startswith("whisper") and ("llama" in m.id or "mixtral" in m.id or "gemma" in m.id)
+        ]
         
-        # Lista priorizada de preferencia
+        # Orden de preferencia explícito
         preferencias = [
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
@@ -119,21 +122,20 @@ def consultar_platon_groq(texto, opciones, api_key_val):
             "llama3-8b-8192"
         ]
         
-        # Elegir el primer modelo de la preferencia que exista en la cuenta, o el primero disponible
         modelo_elegido = None
         for pref in preferencias:
-            if pref in modelos_ids:
+            if pref in modelos_texto:
                 modelo_elegido = pref
                 break
                 
-        if not modelo_elegido and modelos_ids:
-            modelo_elegido = modelos_ids[0]
+        if not modelo_elegido and modelos_texto:
+            modelo_elegido = modelos_texto[0]
             
         if not modelo_elegido:
-            st.error("No se encontraron modelos disponibles activos para esta API Key de Groq.")
+            st.error("No se encontraron modelos de chat válidos en la cuenta de Groq.")
             return None
 
-        # 2. Ejecutar la llamada con el modelo detectado
+        # 2. Ejecutar la llamada con el modelo de texto identificado
         response = client.chat.completions.create(
             model=modelo_elegido,
             messages=[
