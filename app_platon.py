@@ -46,7 +46,7 @@ with st.expander("ℹ️ ¿Qué es Platón AI y cómo se usa?"):
        * *Nota:* Platón AI permite evaluar documentos de hasta **15,000 caracteres** (~6-8 páginas) por consulta para garantizar la máxima velocidad y estabilidad.
 
     2. **Selecciona la función deseada:**
-       * **📋 Resumen Ejecutivo:** Genera una síntesis panorámica del documento, destacando puntos fuertes, vacíos generales y conceptos clave.
+       * **📋 Resumen Ejecutivo:** Genera una síntesis panorámica del documento, destacando puntos fuertes, vacíos generales y conceptos clave. *(Usa los íconos ❓ para ver los criterios de evaluación)*.
        * **✍️ Análisis de Redacción:** Evalúa el registro estilístico, detecta ambigüedades sintácticas, redundancias y precisión léxica.
        * **⚖️ Auditoría Argumentativa:** Identifica la tesis central del autor, aísla falacias lógicas, premisas no justificadas y saltos inferenciales.
        * **🔄 Reformulador Académico:** Reescribe el escrito de forma orgánica y fluida, elevando el rigor terminológico y corrigiendo sesgos o fallas lógicas.
@@ -316,11 +316,28 @@ TEXTO:
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.success("**Puntos Fuertes:**")
+                    st.success("**Puntos Fuertes**")
+                    with st.popover("❓ ¿Qué se evalúa aquí?"):
+                        st.markdown("""
+                        **Criterios de Puntos Fuertes:**
+                        - **Claridad de la tesis:** Hipótesis principal bien delimitada.
+                        - **Cohesión discursiva:** Uso adecuado de conectores académicos.
+                        - **Rigor terminológico:** Vocabulario técnico y especializado.
+                        - **Fundamentación:** Argumentos respaldados con evidencia o lógica sólida.
+                        """)
                     for pf in res.get("puntos_fuertes", []):
                         st.markdown(f"* {pf}")
+
                 with col2:
-                    st.warning("**Aspectos a Mejorar:**")
+                    st.warning("**Aspectos a Mejorar**")
+                    with st.popover("❓ ¿Qué se evalúa aquí?"):
+                        st.markdown("""
+                        **Criterios de Aspectos a Mejorar:**
+                        - **Premisas sin justificar:** Afirmaciones categóricas sin evidencia.
+                        - **Sesgos o falta de matices:** Posturas extremas sin considerar contraargumentos.
+                        - **Saltos inferenciales:** Conclusiones que no se derivan del texto.
+                        - **Ambigüedad / Redundancia:** Falta de precisión o uso de muletillas.
+                        """)
                     for am in res.get("aspectos_a_mejorar", []):
                         st.markdown(f"* {am}")
                         
